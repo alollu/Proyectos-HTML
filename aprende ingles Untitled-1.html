@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>English B2 Trainer 🎓</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .level-transition {
+      transition: background 0.8s ease, color 0.8s ease;
+    }
+  </style>
+</head>
+<body class="level-transition bg-green-50 min-h-screen flex flex-col items-center p-4 text-gray-800">
+  <header class="text-center mb-6">
+    <h1 class="text-3xl font-bold mb-2">English B2 Trainer 🎓</h1>
+    <p class="text-sm">Practice <span id="current-level-name" class="font-semibold">Level 1</span> and advance up to B2!</p>
+  </header>
+
+  <!-- Level & Exercise selectors -->
+  <section class="w-full max-w-md mb-8">
+    <div class="grid grid-cols-2 gap-4">
+      <select id="level-select" class="p-2 rounded border border-gray-300 w-full"></select>
+      <select id="exercise-select" class="p-2 rounded border border-gray-300 w-full">
+        <option value="listening">🎧 Listening</option>
+        <option value="gap">✏️ Fill in the Gaps</option>
+        <option value="translate">🔤 Translator</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Exercise panel -->
+  <section id="exercise-panel" class="w-full max-w-lg bg-white shadow-lg rounded-xl p-6 mb-6 flex flex-col gap-4">
+    <h2 id="exercise-title" class="text-xl font-semibold flex items-center gap-1">🎯 Exercise</h2>
+    <p id="exercise-content" class="min-h-[3rem]"></p>
+
+    <input id="user-input" type="text" autocomplete="off" placeholder="Write your answer…" class="w-full p-3 border border-gray-300 rounded-lg" />
+
+    <div class="flex gap-2">
+      <button id="speak-btn" class="hidden px-4 py-2 bg-blue-500 text-white rounded-lg">🔊 Escuchar</button>
+      <button id="submit-btn" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg">Enviar</button>
+    </div>
+
+    <p id="hint" class="text-yellow-700 text-sm"></p>
+  </section>
+
+  <!-- Progress & toast -->
+  <div class="text-center mb-4">
+    <p>Exercises answered correctly: <span id="correct-count" class="font-bold">0</span>/10</p>
+  </div>
+  <div id="toast" class="fixed bottom-4 right-4 hidden bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-lg shadow-lg"></div>
+
+  <script>
+    // ========== Data ==========
+    const DATA = {
+      levels: [
+        {
+          id: 1,
+          name: "Level 1 (A2)",
+          theme: "bg-green-50",
+          accent: "text-green-600",
+          exercises: {
+            listening: [
+              { sentence: "I have breakfast at eight o'clock." },
+              { sentence: "The weather is sunny today." },
+            ],
+            gap: [
+              { full: "She ____ to school every day.", answer: "goes" },
+              { full: "They are ____ football.", answer: "playing" },
+            ],
+            translate: [
+              { source: "Buenos días", fallback: "Good morning" },
+              { source: "Gracias", fallback: "Thank you" },
+            ],
+          },
+        },
+        {
+          id: 2,
+          name: "Level 2 (B1)",
+          theme: "bg-green-100",
+          accent: "text-green-700",
+          exercises: {
+            listening: [
+              { sentence: "She has been working here for five years." },
+              { sentence: "We will visit the museum tomorrow." },
+            ],
+            gap: [
+              { full: "If I ____ more time, I would travel.", answer: "had" },
+              { full: "He hasn't ____ the book yet.", answer: "read" },
+            ],
+            translate: [
+              { source: "¿Dónde está la estación?", fallback: "Where is the station?" },
+              { source: "Estoy aprendiendo inglés", fallback: "I am learning English" },
+            ],
+          },
+        },
+        {
+          id: 3,
+          name: "Level 3 (B2)",
+          theme: "bg-green-200",
+          accent: "text-green-800",
+          exercises: {
+            listening: [
+              { sentence: "Despite the rain, the match continued without interruption." },
+              { sentence: "He emphasized the importance of critical thinking." },
+            ],
+            gap: [
+              { full: "She is looking forward to ____ abroad.", answer: "studying" },
+              { full: "Hardly ____ finished the task when the phone rang.", answer: "had I" },
+            ],
+            translate: [
+              { source: "No me arrepiento de nada", fallback: "I regret nothing" },
+              { source: "Cuanto antes llegues, mejor", fallback: "The sooner you arrive, the better" },
+            ],
+          },
+        },
+      ],
+    };
+
+    // ========== State ==========
+    let currentLevelIndex = parseInt(localStorage.getItem("levelIndex")) || 0;
+    let correctInLevel = parseInt(localStorage.getItem("correctCount")) || 0;
+
+    // ========== DOM ==========
+    const levelSelect = document.getElementById("level-select");
+    const exerciseSelect = document.getElementById("exercise-select");
+    const exerciseTitle = document.getElementById("exercise-title");
+    const exerciseContent = document.getElementById("exercise-content");
+    const userInput = document.getElementById("user-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const speakBtn = document.getElementById("speak-btn");
+    const hintP = document.getElementById("hint");
+    const correctCountSpan = document.getElementById("correct-count");
+    const toast = document.getElementById("toast");
+    const currentLevelName = document.getElementById("current-level-name");
+
+    // ========== Helpers ==========
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      speechSynthesis.speak(utterance);
+    }
+
+    function showToast(message) {
+      toast.textContent = `${message} 🥳`;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 3000);
+    }
+
+    function updateLevelUI() {
+      const level = DATA.levels[currentLevelIndex];
+      document.body.className = `level-transition ${level.theme} min-h-screen flex flex-col items-center p-4 text-gray-800`;
+      currentLevelName.textContent = level.name;
+      correctCountSpan.textContent = correctInLevel;
+      levelSelect.value = level.id;
+    }
+
+    // ========== Init selectors ==========
+    function initSelects() {
+      DATA.levels.forEach((lvl) => {
+        const opt = document.createElement("option");
+        opt.value = lvl.id;
+        opt.textContent = lvl.name;
+        levelSelect.appendChild(opt);
+      });
+    }
+
+    // ========== Load Exercise ==========
+    async function loadExercise() {
+      hintP.textContent = "";
+      userInput.value = "";
+
+      const level = DATA.levels.find((l) => l.id === parseInt(levelSelect.value));
+      currentLevelIndex = DATA.levels.indexOf(level);
+      localStorage.setItem("levelIndex", currentLevelIndex);
+
+      const type = exerciseSelect.value;
+      const exList = level.exercises[type];
+      const exercise = exList[Math.floor(Math.random() * exList.length)];
+
+      const icons = { listening: "🎧", gap: "✏️", translate: "🔤" };
+      exerciseTitle.innerHTML = `${icons[type]} ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+
+      if (type === "listening") {
+        exerciseContent.textContent = "Click \"Escuchar\" and type what you hear.";
+        speakBtn.classList.remove("hidden");
+        speakBtn.onclick = () => speak(exercise.sentence);
+        speakBtn.dataset.answer = exercise.sentence.toLowerCase();
+      } else if (type === "gap") {
+        exerciseContent.textContent = exercise.full;
+        speakBtn.classList.add("hidden");
+        submitBtn.dataset.answer = exercise.answer.toLowerCase();
+        submitBtn.dataset.type = "gap";
+      } else {
+        exerciseContent.textContent = `Translate into English: \"${exercise.source}\"`;
+        speakBtn.classList.add("hidden");
+        submitBtn.dataset.type = "translate";
+        submitBtn.disabled = true;
+        // Fetch translation from MyMemory API
+        const apiURL = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(exercise.source)}&langpair=es|en`;
+        try {
+          const res = await fetch(apiURL);
+          const data = await res.json();
+          const translation = data?.responseData?.translatedText?.toLowerCase().trim() || exercise.fallback.toLowerCase();
+          submitBtn.dataset.answer = translation;
+        } catch (e) {
+          submitBtn.dataset.answer = exercise.fallback.toLowerCase();
+        } finally {
+          submitBtn.disabled = false;
+        }
+      }
+    }
+
+    // ========== Handle submit ==========
+    function handleSubmit() {
+      const userAns = userInput.value.trim().toLowerCase();
+      if (!userAns) return;
+
+      const correctAns = (submitBtn.dataset.answer || speakBtn.dataset.answer || "").toLowerCase();
+      if (!correctAns) {
+        hintP.textContent = "Loading answer… please wait.";
+        return;
+      }
+
+      // Basic equivalence: exact match or contained
+      const isCorrect = userAns === correctAns || correctAns.includes(userAns) || userAns.includes(correctAns);
+
+      if (isCorrect) {
+        showToast("Correct!");
+        correctInLevel += 1;
+        localStorage.setItem("correctCount", correctInLevel);
+        if (correctInLevel >= 10) {
+          if (currentLevelIndex < DATA.levels.length - 1) {
+            currentLevelIndex += 1;
+            correctInLevel = 0;
+            localStorage.setItem("levelIndex", currentLevelIndex);
+            localStorage.setItem("correctCount", correctInLevel);
+            showToast(`You advanced to ${DATA.levels[currentLevelIndex].name}!`);
+          } else {
+            showToast("All levels complete!");
+            correctInLevel = 0;
+          }
+        }
+        updateLevelUI();
+        loadExercise();
+      } else {
+        const reveal = correctAns.slice(0, Math.ceil(correctAns.length * 0.3));
+        hintP.textContent = `Hint: starts with \"${reveal}\"…`;
+      }
+    }
+
+    // ========== Event listeners ==========
+    submitBtn.addEventListener("click", handleSubmit);
+    levelSelect.addEventListener("change", () => {
+      correctInLevel = parseInt(localStorage.getItem("correctCount")) || 0;
+      updateLevelUI();
+      loadExercise();
+    });
+    exerciseSelect.addEventListener("change", loadExercise);
+
+    // ========== Init ==========
+    initSelects();
+    updateLevelUI();
+    loadExercise();
+  </script>
+</body>
+</html>

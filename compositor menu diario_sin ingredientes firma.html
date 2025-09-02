@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>🍽️ Menú Semanal Saludable</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-green-100 to-blue-200 min-h-screen p-6">
+
+<div class="max-w-7xl mx-auto bg-white p-8 rounded-2xl shadow-2xl space-y-8">
+  <h1 class="text-4xl font-bold text-center text-green-700">🥗 Menú Semanal Saludable</h1>
+
+  <!-- Botones -->
+  <div class="flex flex-wrap justify-center gap-4">
+    <button onclick="generateMenu()" class="bg-green-500 hover:bg-green-600 text-white py-2 px-6 rounded-2xl shadow-md">
+      🎲 Generar Nuevo Menú
+    </button>
+    <button onclick="shuffleMenu()" class="bg-yellow-400 hover:bg-yellow-500 text-white py-2 px-6 rounded-2xl shadow-md">
+      🔀 Mezclar Platos
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="overflow-x-auto">
+    <table class="w-full border border-gray-300 rounded-2xl overflow-hidden text-center">
+      <thead class="bg-green-300">
+        <tr>
+          <th class="p-2 border">🍽️ / 📅</th>
+          <th class="p-2 border">Lunes</th>
+          <th class="p-2 border">Martes</th>
+          <th class="p-2 border">Miércoles</th>
+          <th class="p-2 border">Jueves</th>
+          <th class="p-2 border">Viernes</th>
+          <th class="p-2 border">Sábado</th>
+          <th class="p-2 border">Domingo</th>
+        </tr>
+      </thead>
+      <tbody id="menuTable" class="bg-white">
+        <!-- Se rellena dinámicamente -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Proteína diaria -->
+  <div id="proteinWarning" class="text-center font-bold text-red-600 text-lg mt-4"></div>
+
+  <!-- Instrucciones -->
+  <div class="bg-gray-100 p-6 rounded-2xl">
+    <h2 class="text-2xl font-bold mb-2">📚 Instrucciones de uso</h2>
+    <ul class="list-disc pl-6 space-y-2 text-lg">
+      <li>Haz clic en <b>"Generar Nuevo Menú"</b> 🎲 para crear una nueva semana.</li>
+      <li>Haz clic en <b>"Mezclar Platos"</b> 🔀 para intercambiar platos entre días.</li>
+      <li>Verifica que el consumo de proteínas esté entre 100-120g ✅.</li>
+      <li>Guarda este archivo como <b>.html</b> y ábrelo haciendo doble clic.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Sugerencias de platos actualizadas (sin leche, gambas, mariscos, tofu, queso azul)
+const suggestions = {
+  desayuno: [
+    {name: "🥣 Avena con bebida de almendras + 4 claras", protein: 25},
+    {name: "🍞 Pan integral con pavo", protein: 22},
+    {name: "🍳 Tortilla de claras con espinacas", protein: 24},
+    {name: "🥛 Batido de proteína vegetal + plátano", protein: 26},
+  ],
+  comida: [
+    {name: "🍗 Pechuga de pollo a la plancha + arroz integral", protein: 40},
+    {name: "🐟 Salmón al horno + verduras asadas", protein: 38},
+    {name: "🥩 Ternera a la plancha + quinoa", protein: 42},
+    {name: "🐓 Muslo de pollo al horno + ensalada", protein: 36},
+  ],
+  tentempie: [
+    {name: "🍶 Yogur de soja natural + nueces", protein: 18},
+    {name: "🥜 Almendras + proteína vegetal", protein: 20},
+    {name: "🍏 Manzana + crema de cacahuete", protein: 15},
+    {name: "🥛 Batido proteico pequeño de avena", protein: 22},
+  ],
+  cena: [
+    {name: "🥗 Ensalada de atún", protein: 28},
+    {name: "🍳 Omelette de espinacas y champiñones", protein: 30},
+    {name: "🐟 Filete de merluza a la plancha con brócoli", protein: 32},
+    {name: "🍚 Garbanzos salteados con verduras", protein: 25},
+  ]
+};
+
+const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const meals = ["desayuno", "comida", "tentempie", "cena"];
+
+// Generar menú inicial
+function generateMenu() {
+  const tbody = document.getElementById("menuTable");
+  tbody.innerHTML = "";
+
+  meals.forEach(meal => {
+    const tr = document.createElement("tr");
+
+    const mealCell = document.createElement("td");
+    mealCell.textContent = mealEmoji(meal) + " " + capitalize(meal);
+    mealCell.className = "border p-2 font-bold bg-green-100";
+    tr.appendChild(mealCell);
+
+    days.forEach(day => {
+      const randomDish = suggestions[meal][Math.floor(Math.random() * suggestions[meal].length)];
+      const td = document.createElement("td");
+      td.className = "border p-2";
+      td.innerHTML = `<div class="text-sm">${randomDish.name}<br><span class="text-xs text-gray-500">${randomDish.protein}g proteína</span></div>`;
+      td.dataset.protein = randomDish.protein;
+      td.dataset.meal = meal;
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  checkProtein();
+}
+
+// Mezclar platos entre días
+function shuffleMenu() {
+  const tbody = document.getElementById("menuTable");
+  meals.forEach((meal, mealIdx) => {
+    const row = tbody.rows[mealIdx];
+    const cells = Array.from(row.querySelectorAll('td')).slice(1);
+    const values = cells.map(cell => ({html: cell.innerHTML, protein: cell.dataset.protein}));
+
+    // Shuffle
+    for (let i = values.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [values[i], values[j]] = [values[j], values[i]];
+    }
+
+    cells.forEach((cell, idx) => {
+      cell.innerHTML = values[idx].html;
+      cell.dataset.protein = values[idx].protein;
+    });
+  });
+
+  checkProtein();
+}
+
+// Comprobar proteína diaria
+function checkProtein() {
+  const tbody = document.getElementById("menuTable");
+  const proteinPerDay = Array(7).fill(0);
+
+  for (let mealIdx = 0; mealIdx < meals.length; mealIdx++) {
+    const row = tbody.rows[mealIdx];
+    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+      const cell = row.cells[dayIdx + 1];
+      proteinPerDay[dayIdx] += parseInt(cell.dataset.protein);
+    }
+  }
+
+  const warning = document.getElementById("proteinWarning");
+  const invalidDays = proteinPerDay.filter(p => p < 100 || p > 120);
+
+  if (invalidDays.length > 0) {
+    warning.textContent = `⚠️ Hay días fuera del rango de proteína (${proteinPerDay.join(", ")} g/día).`;
+  } else {
+    warning.textContent = `✅ Todos los días cumplen el objetivo de proteínas (${proteinPerDay.join(", ")} g/día).`;
+  }
+}
+
+// Utilidades
+function mealEmoji(meal) {
+  switch (meal) {
+    case "desayuno": return "🍳";
+    case "comida": return "🍛";
+    case "tentempie": return "🍏";
+    case "cena": return "🍝";
+  }
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Inicializar al cargar
+window.onload = generateMenu;
+</script>
+ <!-- Créditos -->
+  <footer class="mt-6 text-xs text-gray-500 italic font-light text-center p-2">
+    created by S. Caprioli
+  </footer>
+
+</body>
+</html>
